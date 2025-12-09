@@ -186,10 +186,13 @@ func main() {
 	startTime := time.Now()
 
 	coords, n := readInput()
+	p1Time := time.Now()
 	part1 := connectN(coords, n)
-	fmt.Println("Day 8, Part 1:", part1)
+	fmt.Println("Day 8, Part 1:", part1, time.Since(p1Time))
+
+	p2Time := time.Now()
 	part2 := connectUntilOneCircuit(coords)
-	fmt.Println("Day 8, Part 2:", part2)
+	fmt.Println("Day 8, Part 2:", part2, time.Since(p2Time))
 
 	fmt.Println(time.Since(startTime))
 
