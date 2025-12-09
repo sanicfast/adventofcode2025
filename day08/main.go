@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func check(e error) {
@@ -123,8 +124,73 @@ func connectN(coords []Coord, n int) int {
 	return output
 }
 
+// check whether all of the values point to the same value in memory
+func isOneSet(coordMap map[Coord]map[Coord]struct{}) bool {
+	i := -1
+	var addrPrev string
+	for _, v := range coordMap {
+		addr := fmt.Sprintf("%p", v)
+		i += 1
+		if i == 0 {
+			addrPrev = addr
+			continue
+		}
+		if addr != addrPrev {
+			return false
+		}
+	}
+	return true
+}
+
+func connectUntilOneCircuit(coords []Coord) int {
+	nCoords := len(coords)
+	// key=coord id -> value=set containing coord
+	coordMap := make(map[Coord]map[Coord]struct{}, nCoords)
+	for _, c := range coords {
+		circuitSet := make(map[Coord]struct{}, 1)
+		circuitSet[c] = struct{}{}
+		coordMap[c] = circuitSet
+	}
+	connections := []Coord{}
+	for i := range nCoords {
+		for j := i + 1; j < nCoords; j++ {
+			// fmt.Println(i, j)
+			dist := distSq(coords[i], coords[j])
+			// a connection is stored as the indexes of the points and the dist between
+			connections = append(connections, Coord{i, j, dist})
+		}
+	}
+	lessFunc := func(a, b int) bool { return connections[a].z < connections[b].z }
+	sort.Slice(connections, lessFunc)
+
+	// just loop until they're all in the same circuit and return the x coords of the last connection
+	x1, x2 := -1, 999
+	for i := 0; !isOneSet(coordMap); i++ {
+		d := connections[i]
+		a, b := coords[d.x], coords[d.y]
+		x1, x2 = a.x, b.x
+		// is point b in the same circuit set as point a?
+		// if so do nothing. if not add it and then
+		_, found := coordMap[a][b]
+		if !found {
+			setMerge(coordMap[a], coordMap[b])
+			for k := range coordMap[b] {
+				coordMap[k] = coordMap[a]
+			}
+		}
+	}
+	return x1 * x2
+}
+
 func main() {
+	startTime := time.Now()
+
 	coords, n := readInput()
 	part1 := connectN(coords, n)
 	fmt.Println("Day 8, Part 1:", part1)
+	part2 := connectUntilOneCircuit(coords)
+	fmt.Println("Day 8, Part 2:", part2)
+
+	fmt.Println(time.Since(startTime))
+
 }
