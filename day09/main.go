@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/png"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -26,7 +27,7 @@ type Edge struct {
 	b Coord
 }
 
-func readInput() ([]Coord, []Edge) {
+func readInput() ([]Coord, []Edge, []Coord, []Edge) {
 	filename := "input.txt"
 	if len(os.Args) > 1 {
 		filename = os.Args[1]
@@ -35,22 +36,60 @@ func readInput() ([]Coord, []Edge) {
 	check(err)
 	inputString := string(rawData)
 	lines := strings.Split(inputString, "\n")
-	outCoords := make([]Coord, 0, len(lines))
+	tiles := make([]Coord, 0, len(lines))
+	xVals := []int{}
+	yVals := []int{}
 	for _, line := range lines {
 		f := strings.Split(line, ",")
 		x, e1 := strconv.Atoi(f[0])
 		y, e2 := strconv.Atoi(f[1])
 		check(e1)
 		check(e2)
-		outCoords = append(outCoords, Coord{x, y})
+		tiles = append(tiles, Coord{x, y})
+		xVals = append(xVals, x)
+		yVals = append(yVals, y)
 	}
-	outEdges := make([]Edge, 0, len(lines))
+	xValsDedup := sortAndDedup(xVals)
+	yValsDedup := sortAndDedup(yVals)
 
-	for i := range outCoords {
-		outEdges = append(outEdges, Edge{outCoords[i], outCoords[(i+1)%len(outCoords)]})
+	tilesCompressed := make([]Coord, len(tiles))
+	for i := range tilesCompressed {
+		for j := range xValsDedup {
+			if tiles[i].x == xValsDedup[j] {
+				tilesCompressed[i].x = j * 2
+			}
+		}
+		for j := range yValsDedup {
+			if tiles[i].y == yValsDedup[j] {
+				tilesCompressed[i].y = j * 2
+			}
+		}
 	}
-	return outCoords, outEdges
+
+	edges := make([]Edge, 0, len(lines))
+	for i := range tiles {
+		edges = append(edges, Edge{tiles[i], tiles[(i+1)%len(tiles)]})
+	}
+	edgesCompressed := make([]Edge, 0, len(lines))
+	for i := range tiles {
+		edgesCompressed = append(edgesCompressed, Edge{tilesCompressed[i], tilesCompressed[(i+1)%len(tiles)]})
+	}
+
+	return tiles, edges, tilesCompressed, edgesCompressed
 }
+
+func sortAndDedup(slice []int) []int {
+	sort.Ints(slice)
+	j := 0
+	for i := 1; i < len(slice); i++ {
+		if slice[i] != slice[j] {
+			j++
+			slice[j] = slice[i] // Move unique element to the next available position
+		}
+	}
+	return slice[:j+1] // Return the slice up to the last unique element
+}
+
 func getArea(c1, c2 Coord) int {
 
 	loX, hiX := minMaxInt(c1.x, c2.x)
@@ -269,7 +308,7 @@ func isAllRedOrGreen(corner1, corner2 Coord, edges []Edge) bool {
 		return false
 	}
 	// quick scan along the verticals
-	for y := loY; y <= hiY; y += 1000 {
+	for y := loY; y <= hiY; y += 1500 {
 		if !isPointinPolygon(Coord{loX, y}, edges) {
 			return false
 		}
@@ -286,7 +325,6 @@ func isAllRedOrGreen(corner1, corner2 Coord, edges []Edge) bool {
 		if !isPointinPolygon(Coord{hiX, y}, edges) { // right side
 			return false
 		}
-
 	}
 	for x := loX; x <= hiX; x++ { // bottom and top
 		if !isPointinPolygon(Coord{x, loY}, edges) { //bottom
@@ -358,18 +396,45 @@ func makeimage(pixelData [][]int, output string) {
 	}
 }
 
+func biggestRedGreenSquareCompress(tiles []Coord, tilesCompressed []Coord, edges []Edge) int {
+	maxArea := 0
+
+	for i := range tiles {
+		for j := i + 1; j < len(tiles); j++ {
+			area := getArea(tiles[i], tiles[j])
+			if area > maxArea {
+				rectGood := isAllRedOrGreen(tilesCompressed[i], tilesCompressed[j], edges)
+				if rectGood {
+					// fmt.Println(tiles[i], tiles[j], maxArea, area)
+					maxArea = area
+				}
+			}
+		}
+	}
+	return maxArea
+}
+
 func main() {
 	startTime := time.Now()
-	tiles, edges := readInput()
+	tiles, edges, tilesCompressed, edgesCompressed := readInput()
 
 	p1Time := time.Now()
 	part1 := biggestSquare(tiles)
 	fmt.Println("Day 9, Part 1:", part1, time.Since(p1Time))
 	// test()
-	// plot(edges)
-	p2Time := time.Now()
-	part2 := biggestRedGreenSquare(tiles, edges)
-	fmt.Println("Day 9, Part 2:", part2, time.Since(p2Time))
+	// plot(edgesCompressed)
+
+	_ = edges
+	// p2Time := time.Now()
+	// part2 := biggestRedGreenSquare(tiles, edges)
+	// fmt.Println("Day 9, Part 2:", part2, time.Since(p2Time))
+	// 2s
+
+	p2_2Time := time.Now()
+	part2_2 := biggestRedGreenSquareCompress(tiles, tilesCompressed, edgesCompressed)
+	fmt.Println("Day 9, Part 2:", part2_2, time.Since(p2_2Time))
+	// 650ms
+
 	fmt.Println(time.Since(startTime))
 
 }
