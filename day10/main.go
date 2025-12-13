@@ -3,7 +3,9 @@ package main
 import (
 	"container/list"
 	"fmt"
+	"math/bits"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -100,21 +102,21 @@ func power(n, p int) int {
 	return out
 }
 
-func printBinary(n int) {
-	fmt.Printf("%b\n", n)
-}
-func printBinaryList(s []int) {
-	for _, n := range s {
-		printBinary(n)
-	}
-}
+// func printBinary(n int) {
+// 	fmt.Printf("%b\n", n)
+// }
+// func printBinaryList(s []int) {
+// 	for _, n := range s {
+// 		printBinary(n)
+// 	}
+// }
 
 type qEntry struct {
 	n       int
 	presses int
 }
 
-func mashButtons(target int, buttonOptions []int) int {
+func mashButtonsOld(target int, buttonOptions []int) int {
 	myQ := list.New()
 	myQ.PushBack(qEntry{0, 0})
 	visited := make(map[int]struct{})
@@ -138,89 +140,85 @@ func mashButtons(target int, buttonOptions []int) int {
 	return 0 //not found!
 }
 
-func test() {
-	n := 0
-	target := 0b110
-	n ^= 0b101
-	n ^= 0b11
-	fmt.Println("basic xor op")
-	fmt.Println(n == target)
-	fmt.Println("mashButtons")
-	fmt.Println(mashButtons(target, []int{8, 10, 4, 12, 5, 3}))
-}
-
-func getMinButtonTotal(lightsInt []int, buttonsListList [][]int) int {
+func getMinButtonTotalOld(lightsInt []int, buttonsListList [][]int) int {
 	sum := 0
 	for i := range lightsInt {
-		minButtons := mashButtons(lightsInt[i], buttonsListList[i])
+		minButtons := mashButtonsOld(lightsInt[i], buttonsListList[i])
 		sum += minButtons
 	}
 	return sum
 }
 
-func transpose(matrix [][]int) [][]int {
-	numRows, numCols := len(matrix), len(matrix[0])
-	matrixT := make([][]int, numCols)
-	for c := range numCols {
-		matrixT[c] = make([]int, numRows)
-		for r := range numRows {
-			matrixT[c][r] = matrix[r][c]
-		}
-	}
-	return matrixT
-
+type Combo struct {
+	combo int
+	cnt   int
 }
 
-func makeJoltButtonMatrix(buttons [][]int, jolts []int) [][]int {
-	numRows := len(buttons)
-	numCols := len(jolts)
-
-	matrix := make([][]int, numRows)
-	for r := range numRows {
-		matrix[r] = make([]int, numCols)
+func getCombos(numButtons int) []Combo {
+	totalCombinations := power(2, numButtons)
+	combos := make([]Combo, totalCombinations)
+	for i := 0; i < totalCombinations; i++ {
+		combos[i] = Combo{i, bits.OnesCount(uint(i))}
 	}
-	for r, b := range buttons {
-		for _, c := range b {
-			matrix[r][c] = 1
-		}
-	}
-	matrixT := transpose(matrix)
-	return matrixT
+	sort.Slice(combos, func(i, j int) bool {
+		return combos[i].cnt < combos[j].cnt
+	})
+	return combos
 }
 
-// func convertMatrixToFlatFloat(matrix [][]int) ([]float64, int, int) {
-// 	numRows := len(matrix)
-// 	numCols := len(matrix[0])
+func mashButtons2(target int, buttonOptions []int, combos []Combo) Combo {
 
-// 	flatFloatMatrix := make([]float64, 0, numRows*numCols)
+	for _, combo := range combos {
+		attempt := 0
+		for buttonIdx := range buttonOptions {
+			if (combo.combo>>buttonIdx)&1 == 1 {
+				attempt ^= buttonOptions[buttonIdx]
+			}
+			if attempt == target {
+				return combo
+			}
+		}
+	}
+	return Combo{-1, -1}
+}
 
-// 	for r := range numRows {
-// 		for c := range numCols {
-// 			flatFloatMatrix = append(flatFloatMatrix, float64(matrix[r][c]))
-// 		}
-// 	}
-// 	return flatFloatMatrix, numRows, numCols
+// func test() {
+// 	n := 0
+// 	target := 0b110
+// 	n ^= 0b101
+// 	n ^= 0b11
+// 	fmt.Println("basic xor op")
+// 	fmt.Println(n == target)
+// 	fmt.Println("mashButtons")
+// 	fmt.Println(mashButtons(target, []int{8, 10, 4, 12, 5, 3}))
 // }
-// func convertFlatFloatToIntSliceMatrix(flatFloatMatrix []float64, numRows, numCols int) [][]int {
-// 	matrix := make([][]int, numRows)
-// 	i := 0
-// 	for r := range numRows {
-// 		matrix[r] = make([]int, numCols)
-// 		for c := range numCols {
-// 			matrix[r][c] = int(flatFloatMatrix[i])
-// 			i += 1
-// 		}
-// 	}
-// 	return matrix
-// }
+
+func getMinButtonTotal2(lightsInt []int, buttonsListList [][]int) int {
+	sum := 0
+	comboCache := make(map[int][]Combo)
+	for i := range lightsInt {
+		buttons := buttonsListList[i]
+		numButtons := len(buttonsListList[i])
+		combos, found := comboCache[numButtons]
+		if !found {
+			combos = getCombos(numButtons)
+			comboCache[numButtons] = combos
+		}
+		minButtons := mashButtons2(lightsInt[i], buttons, combos)
+		sum += minButtons.cnt
+	}
+	return sum
+}
 
 func main() {
 	startTime := time.Now()
-	// lightsInt, buttonsIntList, _, _ := readInput()
-	lightsInt, buttonsIntList, buttons, jolts := readInput()
+	lightsInt, buttonsIntList, _, _ := readInput()
+	// lightsInt, buttonsIntList, buttons, jolts := readInput()
+
 	p1Time := time.Now()
-	part1 := getMinButtonTotal(lightsInt, buttonsIntList)
+	part1 := getMinButtonTotal2(lightsInt, buttonsIntList)
 	fmt.Println("Day 10, Part 1:", part1, time.Since(p1Time))
+
 	fmt.Println(time.Since(startTime))
 
 	// couldn't get z3 working with go so i did it in python
