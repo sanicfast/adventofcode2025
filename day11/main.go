@@ -145,3 +145,9 @@ func main() {
 	fmt.Println("Day 11, Part 2:", part2, time.Since(p2Time))
 	fmt.Println(time.Since(startTime))
 }
+
+// apparently there's some way to do this by flattening the graph such with weighted edges
+//   b
+// a c e
+//   d
+//   becomes a -3- e
